@@ -65,9 +65,9 @@
     height: 100%;
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: linear-gradient(-45deg, #fff8ef, #ffe4f0, #fff1d6, #e0fff5);
-    background-size: 400% 400%;
-    animation: shimmer 14s ease infinite;
+    background: linear-gradient(-45deg, #ffb3c1, #ffd6a5, #fdffb6, #caffbf, #9bf6ff, #a0c4ff, #bdb2ff, #ffc6ff);
+    background-size: 500% 500%;
+    animation: shimmer 18s ease infinite;
     color: var(--choc);
     position: relative;
     overflow-x: hidden;
@@ -343,6 +343,12 @@
     white-space: nowrap;
     margin-left: 8px;
   }
+  .flavor-notes {
+    font-size: 0.78rem;
+    color: #a5806b;
+    margin-top: 2px;
+    font-style: italic;
+  }
 
   .back-row {
     display: flex;
@@ -506,7 +512,7 @@ function homeHtml() {
     return `
       <div class="empty-state">
         <div class="big-cone">🍧</div>
-        <div>No places yet. Tap + to add your first ice cream spot.</div>
+        <div>No visits logged yet. Tap + to log your first ice cream stop.</div>
       </div>
     `;
   }
@@ -545,14 +551,17 @@ function placeHtml() {
           <div class="flavor-row">
             <div class="flavor-name-wrap">
               <div class="flavor-rank ${i === 0 ? 'gold' : ''}">${i + 1}</div>
-              <div class="flavor-name">${escapeHtml(f.name)}</div>
+              <div>
+                <div class="flavor-name">${escapeHtml(f.name)}</div>
+                ${f.notes ? `<div class="flavor-notes">${escapeHtml(f.notes)}</div>` : ''}
+              </div>
             </div>
             <div class="flavor-score">${f.rating}/10 🍦</div>
           </div>
         `).join('')
       }
     </div>
-    <button class="btn secondary" data-action="add-flavor-to-place">+ Log a flavor here</button>
+    <button class="btn secondary" data-action="add-flavor-to-place">+ Log a visit here</button>
   `;
 }
 
@@ -581,6 +590,7 @@ function allFlavorsHtml() {
             <div>
               <div class="all-flavor-name">${escapeHtml(f.name)}</div>
               <div class="all-flavor-place">${escapeHtml(f.placeName)}</div>
+              ${f.notes ? `<div class="flavor-notes">${escapeHtml(f.notes)}</div>` : ''}
             </div>
             <div class="flavor-score">${f.rating}/10 🍦</div>
           </div>
@@ -620,15 +630,11 @@ function attachHomeHandlers() {
   const backBtn = document.querySelector('[data-action="back-home"]');
   if (backBtn) backBtn.onclick = () => { view.screen = 'home'; render(); };
   const addFlavorBtn = document.querySelector('[data-action="add-flavor-to-place"]');
-  if (addFlavorBtn) addFlavorBtn.onclick = () => openFlavorModal(view.placeId);
+  if (addFlavorBtn) addFlavorBtn.onclick = () => openVisitModal(view.placeId);
 }
 
 document.getElementById('fabBtn').onclick = () => {
-  if (view.screen === 'place' && view.placeId) {
-    openFlavorModal(view.placeId);
-  } else {
-    openMainAddModal();
-  }
+  openVisitModal(view.screen === 'place' ? view.placeId : null);
 };
 
 function closeModal() {
@@ -636,69 +642,25 @@ function closeModal() {
   document.getElementById('modalContent').innerHTML = '';
 }
 
-function openMainAddModal() {
-  const overlay = document.getElementById('modalOverlay');
-  const modal = document.getElementById('modalContent');
-  modal.innerHTML = `
-    <h2>What do you want to add?</h2>
-    <button class="btn" id="addPlaceOpt">🏪 A new place</button>
-    <div style="height:10px;"></div>
-    <button class="btn secondary" id="addFlavorOpt">🍨 A flavor you tried</button>
-    <div style="height:10px;"></div>
-    <button class="btn ghost" style="width:100%;" id="cancelOpt">Cancel</button>
-  `;
-  overlay.classList.remove('hidden');
-  document.getElementById('addPlaceOpt').onclick = openPlaceModal;
-  document.getElementById('addFlavorOpt').onclick = () => openFlavorModal(null);
-  document.getElementById('cancelOpt').onclick = closeModal;
-}
-
-function openPlaceModal() {
-  const modal = document.getElementById('modalContent');
-  modal.innerHTML = `
-    <h2>Add a place</h2>
-    <div class="field">
-      <label>Store name</label>
-      <input type="text" id="placeNameInput" placeholder="e.g. Hoffman's, Nicholas, Cookman Creamery, Day's Ice Cream">
-    </div>
-    <button class="btn" id="savePlaceBtn">Save place</button>
-  `;
-  document.getElementById('placeNameInput').focus();
-  document.getElementById('savePlaceBtn').onclick = async () => {
-    const name = document.getElementById('placeNameInput').value.trim();
-    if (!name) return;
-    const newPlace = { id: uid(), name, flavors: [] };
-    state.places.push(newPlace);
-    render();
-    closeModal();
-    view.screen = 'home';
-    render();
-    confettiBurst();
-    try {
-      await fetch(WORKER + '/place', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: newPlace.id, name: newPlace.name }),
-      });
-    } catch (e) {
-      console.error('save place failed', e);
-    }
-  };
-}
-
-function openFlavorModal(preselectPlaceId) {
+function openVisitModal(preselectPlaceId) {
   const modal = document.getElementById('modalContent');
   let rating = 5;
   const placeOptions = state.places.map(p => `<option value="${p.id}" ${p.id === preselectPlaceId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
   modal.innerHTML = `
-    <h2>Log a flavor</h2>
-    ${state.places.length === 0 ? `<p style="color:#a5806b;">Add a place first, then come back to log a flavor.</p>` : `
+    <h2>🍦 Log an ice cream visit</h2>
     <div class="field">
       <label>Place</label>
-      <select id="flavorPlaceSelect">${placeOptions}</select>
+      <select id="visitPlaceSelect">
+        ${placeOptions}
+        <option value="__new__">➕ Add a new place...</option>
+      </select>
+    </div>
+    <div class="field" id="newPlaceField" style="display:${state.places.length === 0 ? 'block' : 'none'};">
+      <label>New place name</label>
+      <input type="text" id="newPlaceInput" placeholder="e.g. Hoffman's, Nicholas, Cookman Creamery, Day's Ice Cream">
     </div>
     <div class="field">
-      <label>Flavor name</label>
+      <label>Flavor</label>
       <input type="text" id="flavorNameInput" placeholder="e.g. Mint chocolate chip">
     </div>
     <div class="field">
@@ -706,10 +668,19 @@ function openFlavorModal(preselectPlaceId) {
       <div class="rating-label" id="ratingLabel">5 / 10</div>
       <div class="cone-picker" id="conePicker"></div>
     </div>
-    <button class="btn" id="saveFlavorBtn">Save flavor</button>
-    `}
+    <div class="field">
+      <label>Notes (optional)</label>
+      <input type="text" id="notesInput" placeholder="Anything worth remembering">
+    </div>
+    <button class="btn" id="saveVisitBtn">Save visit</button>
   `;
-  if (state.places.length === 0) return;
+
+  const placeSelect = document.getElementById('visitPlaceSelect');
+  const newPlaceField = document.getElementById('newPlaceField');
+  if (state.places.length === 0) placeSelect.value = '__new__';
+  placeSelect.onchange = () => {
+    newPlaceField.style.display = placeSelect.value === '__new__' ? 'block' : 'none';
+  };
 
   const picker = document.getElementById('conePicker');
   function drawCones() {
@@ -723,13 +694,41 @@ function openFlavorModal(preselectPlaceId) {
     }
   }
   drawCones();
-  document.getElementById('flavorNameInput').focus();
-  document.getElementById('saveFlavorBtn').onclick = async () => {
-    const placeId = document.getElementById('flavorPlaceSelect').value;
-    const name = document.getElementById('flavorNameInput').value.trim();
-    if (!name) return;
-    const place = state.places.find(p => p.id === placeId);
-    const newFlavor = { id: uid(), name, rating };
+
+  if (state.places.length === 0) {
+    document.getElementById('newPlaceInput').focus();
+  } else {
+    document.getElementById('flavorNameInput').focus();
+  }
+
+  document.getElementById('saveVisitBtn').onclick = async () => {
+    const flavorName = document.getElementById('flavorNameInput').value.trim();
+    const notes = document.getElementById('notesInput').value.trim();
+    if (!flavorName) return;
+
+    let placeId = placeSelect.value;
+    let place;
+
+    if (placeId === '__new__') {
+      const newPlaceName = document.getElementById('newPlaceInput').value.trim();
+      if (!newPlaceName) return;
+      place = { id: uid(), name: newPlaceName, flavors: [] };
+      state.places.push(place);
+      placeId = place.id;
+      try {
+        await fetch(WORKER + '/place', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: place.id, name: place.name }),
+        });
+      } catch (e) {
+        console.error('save place failed', e);
+      }
+    } else {
+      place = state.places.find(p => p.id === placeId);
+    }
+
+    const newFlavor = { id: uid(), name: flavorName, rating, notes };
     place.flavors.push(newFlavor);
     closeModal();
     view.screen = 'place';
@@ -740,7 +739,7 @@ function openFlavorModal(preselectPlaceId) {
       await fetch(WORKER + '/flavor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: newFlavor.id, place_id: placeId, name: newFlavor.name, rating: newFlavor.rating }),
+        body: JSON.stringify({ id: newFlavor.id, place_id: placeId, name: newFlavor.name, rating: newFlavor.rating, notes: newFlavor.notes }),
       });
     } catch (e) {
       console.error('save flavor failed', e);
