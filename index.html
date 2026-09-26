@@ -643,6 +643,7 @@ function closeModal() {
 }
 
 function openVisitModal(preselectPlaceId) {
+  document.getElementById('modalOverlay').classList.remove('hidden');
   const modal = document.getElementById('modalContent');
   let rating = 5;
   const placeOptions = state.places.map(p => `<option value="${p.id}" ${p.id === preselectPlaceId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
